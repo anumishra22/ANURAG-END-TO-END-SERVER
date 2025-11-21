@@ -63,12 +63,49 @@ def send_message_with_cookies(cookies, convo_id, message):
     try:
         print(f"[DEBUG] Loading conversation page...")
         res = session.get(f'https://www.facebook.com/messages/t/{convo_id}', headers=headers)
+        print(f"[DEBUG] Page response status: {res.status_code}")
         
-        fb_dtsg = re.search(r'"token":"([^"]+)"', res.text)
-        jazoest = re.search(r'jazoest=(\d+)', res.text)
+        if res.status_code != 200:
+            print(f"[ERROR] Failed to load page. Status: {res.status_code}")
+            return False
+        
+        fb_dtsg = None
+        jazoest = None
+        
+        token_patterns = [
+            r'"token":"([^"]+)"',
+            r'"DTSGInitialData"[^}]*"token":"([^"]+)"',
+            r'name="fb_dtsg"[^>]*value="([^"]+)"',
+            r'\["DTSGInitData"[^\]]*"([^"]+)"'
+        ]
+        
+        for pattern in token_patterns:
+            match = re.search(pattern, res.text)
+            if match:
+                fb_dtsg = match
+                print(f"[DEBUG] fb_dtsg found using pattern: {pattern[:30]}...")
+                break
+        
+        jazoest_patterns = [
+            r'jazoest=(\d+)',
+            r'"jazoest":"(\d+)"',
+            r'&amp;jazoest=(\d+)'
+        ]
+        
+        for pattern in jazoest_patterns:
+            match = re.search(pattern, res.text)
+            if match:
+                jazoest = match
+                print(f"[DEBUG] jazoest found: {match.group(1)}")
+                break
         
         if not fb_dtsg or not jazoest:
             print("[ERROR] Could not extract required tokens from page")
+            print("[DEBUG] Saving HTML response to debug.html for inspection...")
+            with open('debug.html', 'w', encoding='utf-8') as f:
+                f.write(res.text[:100000])
+            print("[DEBUG] Check debug.html to inspect the page source")
+            print("[HINT] Your cookies might be expired. Please update cookies.txt with fresh cookies")
             return False
             
         print(f"[DEBUG] Tokens extracted successfully")
@@ -82,12 +119,20 @@ def send_message_with_cookies(cookies, convo_id, message):
             '__user': cookies['c_user']
         }
         
+        print(f"[DEBUG] Sending message...")
         response = session.post('https://www.facebook.com/messages/send/', data=form_data, headers=headers)
         print(f"[DEBUG] Facebook response status: {response.status_code}")
-        return response.ok
+        
+        if response.ok:
+            return True
+        else:
+            print(f"[DEBUG] Response content preview: {response.text[:500]}")
+            return False
         
     except Exception as e:
         print(f"[ERROR] Message sending failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def send_messages():
