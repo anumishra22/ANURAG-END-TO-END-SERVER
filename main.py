@@ -166,11 +166,18 @@ def send_message_with_cookies(cookies, convo_id, message):
         last_response = None
         for endpoint in endpoints_to_try:
             print(f"[DEBUG] Trying endpoint: {endpoint}")
+            print(f"[DEBUG] Sending message: '{message}'")
+            print(f"[DEBUG] Thread ID: {convo_id}")
             response = session.post(endpoint, data=form_data, headers=post_headers, allow_redirects=False)
             last_response = response
             print(f"[DEBUG] Response status: {response.status_code}")
+            print(f"[DEBUG] Response headers: {dict(response.headers)}")
+            print(f"[DEBUG] Response body (first 1000 chars): {response.text[:1000]}")
             
             if response.status_code in [200, 302]:
+                if 'error' in response.text.lower() or 'errorSummary' in response.text:
+                    print(f"[WARNING] Got 200 but response contains error: {response.text[:500]}")
+                    continue
                 print(f"[SUCCESS] Message sent successfully using {endpoint}")
                 return True
             elif response.status_code != 404:
