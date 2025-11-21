@@ -142,36 +142,40 @@ def send_message_selenium(driver, convo_id, message):
             return False
         
         print(f"[DEBUG] Typing message: {message[:50]}...")
-        message_box.click()
+        
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", message_box)
         time.sleep(0.5)
         
-        try:
-            message_box.clear()
-        except:
-            pass
-        
-        try:
-            driver.execute_script("""
-                var element = arguments[0];
-                var text = arguments[1];
-                element.focus();
+        driver.execute_script("""
+            var element = arguments[0];
+            var text = arguments[1];
+            
+            element.scrollIntoView({block: 'center'});
+            element.focus();
+            element.click();
+            
+            if (element.value !== undefined) {
+                element.value = text;
+                element.dispatchEvent(new Event('input', { bubbles: true }));
+                element.dispatchEvent(new Event('change', { bubbles: true }));
+            } else {
+                element.textContent = text;
+                element.innerText = text;
+                element.innerHTML = text;
                 
-                if (element.value !== undefined) {
-                    element.value = text;
-                    element.dispatchEvent(new Event('input', { bubbles: true }));
-                    element.dispatchEvent(new Event('change', { bubbles: true }));
-                } else {
-                    element.textContent = text;
-                    element.innerText = text;
-                    element.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-            """, message_box, message)
-            print("[DEBUG] Message inserted via JavaScript")
-        except:
-            print("[DEBUG] JavaScript insert failed, using send_keys")
-            message_filtered = message.encode('ascii', 'ignore').decode('ascii')
-            message_box.send_keys(message_filtered)
-        
+                var inputEvent = new InputEvent('input', {
+                    bubbles: true,
+                    cancelable: true,
+                    inputType: 'insertText',
+                    data: text
+                });
+                element.dispatchEvent(inputEvent);
+                
+                var changeEvent = new Event('change', { bubbles: true });
+                element.dispatchEvent(changeEvent);
+            }
+        """, message_box, message)
+        print("[DEBUG] Message inserted via JavaScript")
         time.sleep(1)
         
         print("[DEBUG] Looking for send button...")
