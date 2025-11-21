@@ -86,8 +86,8 @@ def load_cookies_to_browser(driver):
 
 def send_message_selenium(driver, convo_id, message):
     try:
-        url = f'https://m.facebook.com/messages/thread/{convo_id}'
-        print(f"[DEBUG] Navigating to mobile messenger: {url}")
+        url = f'https://www.facebook.com/messages/t/{convo_id}'
+        print(f"[DEBUG] Navigating to messenger: {url}")
         driver.get(url)
         time.sleep(5)
         
