@@ -86,50 +86,77 @@ def load_cookies_to_browser(driver):
 
 def send_message_selenium(driver, convo_id, message):
     try:
-        url = f'https://www.facebook.com/messages/t/{convo_id}'
-        print(f"[DEBUG] Navigating to: {url}")
+        url = f'https://m.facebook.com/messages/thread/{convo_id}'
+        print(f"[DEBUG] Navigating to mobile messenger: {url}")
         driver.get(url)
         
-        wait = WebDriverWait(driver, 15)
+        wait = WebDriverWait(driver, 20)
         
         print("[DEBUG] Waiting for message box...")
+        time.sleep(3)
+        
         message_box_selectors = [
-            "div[aria-label='Message']",
-            "div[contenteditable='true'][role='textbox']",
-            "div[data-lexical-editor='true']",
-            "div.x1n2onr6",
-            "div._1mf._1mj"
+            "textarea[name='body']",
+            "textarea#composerInput",
+            "div[contenteditable='true']",
+            "textarea"
         ]
         
         message_box = None
         for selector in message_box_selectors:
             try:
                 message_box = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
-                print(f"[DEBUG] Found message box with selector: {selector}")
-                break
+                if message_box.is_displayed():
+                    print(f"[DEBUG] Found message box with selector: {selector}")
+                    break
             except:
                 continue
         
         if not message_box:
             print("[ERROR] Could not find message box")
-            return False
+            print("[DEBUG] Trying to find any input field...")
+            inputs = driver.find_elements(By.TAG_NAME, "textarea")
+            if inputs:
+                message_box = inputs[0]
+                print(f"[DEBUG] Using first textarea found")
+            else:
+                return False
         
         print(f"[DEBUG] Typing message: {message[:50]}...")
         message_box.click()
         time.sleep(0.5)
-        
-        driver.execute_script("""
-            var element = arguments[0];
-            var text = arguments[1];
-            element.focus();
-            element.textContent = text;
-            element.dispatchEvent(new Event('input', { bubbles: true }));
-        """, message_box, message)
-        
+        message_box.clear()
+        message_box.send_keys(message)
         time.sleep(1)
         
-        print("[DEBUG] Sending message...")
-        message_box.send_keys(Keys.RETURN)
+        print("[DEBUG] Looking for send button...")
+        send_button_selectors = [
+            "button[name='Send']",
+            "input[name='Send']",
+            "button[type='submit']",
+            "input[type='submit']"
+        ]
+        
+        send_button = None
+        for selector in send_button_selectors:
+            try:
+                buttons = driver.find_elements(By.CSS_SELECTOR, selector)
+                for btn in buttons:
+                    if btn.is_displayed():
+                        send_button = btn
+                        print(f"[DEBUG] Found send button with selector: {selector}")
+                        break
+                if send_button:
+                    break
+            except:
+                continue
+        
+        if send_button:
+            print("[DEBUG] Clicking send button...")
+            send_button.click()
+        else:
+            print("[DEBUG] Sending with Enter key...")
+            message_box.send_keys(Keys.RETURN)
         
         time.sleep(2)
         print("[+] Message sent successfully")
