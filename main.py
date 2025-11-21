@@ -129,61 +129,85 @@ def send_message_with_cookies(cookies, convo_id, message):
             
         print(f"[DEBUG] Tokens extracted successfully")
         
+        timestamp_ms = str(int(time.time() * 1000))
+        client_mutation_id = f"{timestamp_ms}:{random.randint(0, 999999)}"
+        
         form_data = {
             'fb_dtsg': fb_dtsg.group(1),
             'jazoest': jazoest_value,
-            'body': message,
-            'tids': convo_id,
-            'ids[0]': convo_id,
-            'wwwupp': 'C3',
-            'message_batch[0][action_type]': 'ma-type:user-generated-message',
-            'message_batch[0][thread_id]': convo_id,
-            'message_batch[0][author]': f'fbid:{cookies["c_user"]}',
-            'message_batch[0][timestamp]': str(int(time.time() * 1000)),
-            'message_batch[0][message_id]': f'<{int(time.time() * 1000000)}>',
-            'message_batch[0][text]': message,
-            'client': 'mercury',
             '__user': cookies['c_user'],
             '__a': '1',
             '__dyn': '',
             '__csr': '',
             '__req': '1',
+            '__hs': '',
+            'dpr': '1',
+            '__ccg': 'EXCELLENT',
+            '__rev': '1000000',
+            '__s': '',
+            '__hsi': '',
+            '__comet_req': '0',
+            'fb_api_caller_class': 'RelayModern',
+            'fb_api_req_friendly_name': 'MessengerThreadMediaSendMutation',
+            'variables': json.dumps({
+                'input': {
+                    'thread_id': convo_id,
+                    'text': message,
+                    'client_mutation_id': client_mutation_id,
+                    'actor_id': cookies['c_user'],
+                }
+            }),
+            'doc_id': '1234567890'
+        }
+        
+        simple_form_data = {
+            'fb_dtsg': fb_dtsg.group(1),
+            'jazoest': jazoest_value,
+            'body': message,
+            'tids': convo_id,
+            'send': '1',
+            '__user': cookies['c_user'],
+            '__a': '1',
+            '__req': 'g',
             '__rev': '1000000'
         }
         
         post_headers = headers.copy()
         post_headers['content-type'] = 'application/x-www-form-urlencoded'
         post_headers['origin'] = 'https://m.facebook.com'
-        post_headers['x-requested-with'] = 'XMLHttpRequest'
         post_headers['referer'] = f'https://m.facebook.com/messages/thread/{convo_id}/'
         
-        endpoints_to_try = [
-            f'https://m.facebook.com/messaging/send/?dpr=1',
-            f'https://m.facebook.com/messages/send/?dpr=1',
-            f'https://www.facebook.com/messaging/send/?dpr=1',
+        endpoints_and_data = [
+            (f'https://m.facebook.com/messages/compose/', simple_form_data),
+            (f'https://www.facebook.com/messaging/send/?dpr=1', form_data),
+            (f'https://m.facebook.com/messages/send/?icm=1', simple_form_data),
         ]
         
         last_response = None
-        for endpoint in endpoints_to_try:
+        for endpoint, data in endpoints_and_data:
             print(f"[DEBUG] Trying endpoint: {endpoint}")
-            print(f"[DEBUG] Sending message: '{message}'")
+            print(f"[DEBUG] Sending message: '{message[:50]}...'")
             print(f"[DEBUG] Thread ID: {convo_id}")
-            response = session.post(endpoint, data=form_data, headers=post_headers, allow_redirects=False)
+            response = session.post(endpoint, data=data, headers=post_headers, allow_redirects=True)
             last_response = response
             print(f"[DEBUG] Response status: {response.status_code}")
-            print(f"[DEBUG] Response headers: {dict(response.headers)}")
-            print(f"[DEBUG] Response body (first 1000 chars): {response.text[:1000]}")
             
-            if response.status_code in [200, 302]:
-                if 'error' in response.text.lower() or 'errorSummary' in response.text:
-                    print(f"[WARNING] Got 200 but response contains error: {response.text[:500]}")
-                    continue
-                print(f"[SUCCESS] Message sent successfully using {endpoint}")
-                return True
-            elif response.status_code != 404:
-                print(f"[DEBUG] Non-404 response, checking content...")
-                if 'error' not in response.text.lower():
-                    print(f"[SUCCESS] Message may have been sent (status {response.status_code})")
+            if response.status_code == 200:
+                resp_text = response.text[:2000]
+                print(f"[DEBUG] Response snippet: {resp_text[:300]}")
+                
+                if 'redirect' not in resp_text.lower() or 'success' in resp_text.lower():
+                    if 'error' not in resp_text.lower() and 'broken' not in resp_text.lower():
+                        print(f"[SUCCESS] Message likely sent using {endpoint}")
+                        return True
+                    else:
+                        print(f"[WARNING] Response may contain error")
+                        continue
+            elif response.status_code == 302:
+                redirect_url = response.headers.get('Location', '')
+                print(f"[DEBUG] Redirected to: {redirect_url}")
+                if 'error' not in redirect_url.lower():
+                    print(f"[SUCCESS] Message sent (302 redirect)")
                     return True
         
         if last_response:
