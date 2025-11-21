@@ -1,5 +1,7 @@
 { pkgs }: {
   deps = [
+    pkgs.chromedriver
+    pkgs.chromium
     pkgs.picolisp
     pkgs.pio
     pkgs.bashInteractive
