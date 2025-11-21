@@ -163,9 +163,11 @@ def send_message_with_cookies(cookies, convo_id, message):
             f'https://www.facebook.com/messaging/send/?dpr=1',
         ]
         
+        last_response = None
         for endpoint in endpoints_to_try:
             print(f"[DEBUG] Trying endpoint: {endpoint}")
             response = session.post(endpoint, data=form_data, headers=post_headers, allow_redirects=False)
+            last_response = response
             print(f"[DEBUG] Response status: {response.status_code}")
             
             if response.status_code in [200, 302]:
@@ -177,7 +179,10 @@ def send_message_with_cookies(cookies, convo_id, message):
                     print(f"[SUCCESS] Message may have been sent (status {response.status_code})")
                     return True
         
-        print(f"[DEBUG] All endpoints failed. Last response: {response.text[:500]}")
+        if last_response:
+            print(f"[DEBUG] All endpoints failed. Last response: {last_response.text[:500]}")
+        else:
+            print(f"[DEBUG] All endpoints failed. No response received.")
         return False
     
     except Exception as e:
