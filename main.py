@@ -47,49 +47,63 @@ def get_fb_cookies():
 
 def send_message_with_cookies(cookies, convo_id, message):
     headers = {
-        'authority': 'www.facebook.com',
-        'accept': '*/*',
+        'authority': 'm.facebook.com',
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'accept-language': 'en-US,en;q=0.9',
-        'content-type': 'application/x-www-form-urlencoded',
-        'origin': 'https://www.facebook.com',
-        'referer': f'https://www.facebook.com/messages/t/{convo_id}',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
+        'cache-control': 'max-age=0',
+        'referer': f'https://m.facebook.com/messages/thread/{convo_id}/',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-site': 'same-origin',
+        'sec-fetch-user': '?1',
+        'upgrade-insecure-requests': '1',
+        'user-agent': 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36'
     }
     
     session = requests.Session()
     for name, value in cookies.items():
-        session.cookies.set(name, value)
+        session.cookies.set(name, value, domain='.facebook.com')
     
     try:
-        print(f"[DEBUG] Loading conversation page...")
-        res = session.get(f'https://www.facebook.com/messages/t/{convo_id}', headers=headers)
+        print(f"[DEBUG] Loading mobile conversation page...")
+        res = session.get(f'https://m.facebook.com/messages/thread/{convo_id}/', headers=headers, allow_redirects=True)
         print(f"[DEBUG] Page response status: {res.status_code}")
+        print(f"[DEBUG] Final URL: {res.url}")
         
         if res.status_code != 200:
             print(f"[ERROR] Failed to load page. Status: {res.status_code}")
+            with open('debug.html', 'w', encoding='utf-8') as f:
+                f.write(res.text[:50000])
+            print(f"[DEBUG] Response saved to debug.html")
             return False
         
         fb_dtsg = None
         jazoest = None
         
         token_patterns = [
+            r'"dtsg":"([^"]+)"',
+            r'name="fb_dtsg"[^>]*value="([^"]+)"',
             r'"token":"([^"]+)"',
             r'"DTSGInitialData"[^}]*"token":"([^"]+)"',
-            r'name="fb_dtsg"[^>]*value="([^"]+)"',
-            r'\["DTSGInitData"[^\]]*"([^"]+)"'
+            r'\["DTSGInitData"[^\]]*"([^"]+)"',
+            r'fb_dtsg" value="([^"]+)"',
+            r'\\"token\\":\\"([^"]+)\\"',
+            r'window\.wlct\.dtsg\s*=\s*"([^"]+)"'
         ]
         
         for pattern in token_patterns:
             match = re.search(pattern, res.text)
             if match:
                 fb_dtsg = match
-                print(f"[DEBUG] fb_dtsg found using pattern: {pattern[:30]}...")
+                print(f"[DEBUG] fb_dtsg found: {match.group(1)[:20]}...")
                 break
         
         jazoest_patterns = [
+            r'name="jazoest"[^>]*value="(\d+)"',
             r'jazoest=(\d+)',
             r'"jazoest":"(\d+)"',
-            r'&amp;jazoest=(\d+)'
+            r'&amp;jazoest=(\d+)',
+            r'jazoest" value="(\d+)"'
         ]
         
         for pattern in jazoest_patterns:
@@ -99,36 +113,73 @@ def send_message_with_cookies(cookies, convo_id, message):
                 print(f"[DEBUG] jazoest found: {match.group(1)}")
                 break
         
-        if not fb_dtsg or not jazoest:
-            print("[ERROR] Could not extract required tokens from page")
-            print("[DEBUG] Saving HTML response to debug.html for inspection...")
+        if not fb_dtsg:
+            print("[ERROR] Could not extract fb_dtsg token")
             with open('debug.html', 'w', encoding='utf-8') as f:
                 f.write(res.text[:100000])
-            print("[DEBUG] Check debug.html to inspect the page source")
-            print("[HINT] Your cookies might be expired. Please update cookies.txt with fresh cookies")
+            print("[DEBUG] Response saved to debug.html for inspection")
+            print("[HINT] Cookies might be expired or Facebook changed its format")
             return False
+        
+        if not jazoest:
+            print("[WARNING] Could not extract jazoest, trying without it...")
+            jazoest_value = "2" + str(sum(ord(c) for c in fb_dtsg.group(1)))
+        else:
+            jazoest_value = jazoest.group(1)
             
         print(f"[DEBUG] Tokens extracted successfully")
         
         form_data = {
             'fb_dtsg': fb_dtsg.group(1),
-            'jazoest': jazoest.group(1),
+            'jazoest': jazoest_value,
             'body': message,
-            'send': 'Send',
-            'tids': f'cid.{convo_id}',
-            '__user': cookies['c_user']
+            'tids': convo_id,
+            'ids[0]': convo_id,
+            'wwwupp': 'C3',
+            'message_batch[0][action_type]': 'ma-type:user-generated-message',
+            'message_batch[0][thread_id]': convo_id,
+            'message_batch[0][author]': f'fbid:{cookies["c_user"]}',
+            'message_batch[0][timestamp]': str(int(time.time() * 1000)),
+            'message_batch[0][message_id]': f'<{int(time.time() * 1000000)}>',
+            'message_batch[0][text]': message,
+            'client': 'mercury',
+            '__user': cookies['c_user'],
+            '__a': '1',
+            '__dyn': '',
+            '__csr': '',
+            '__req': '1',
+            '__rev': '1000000'
         }
         
-        print(f"[DEBUG] Sending message...")
-        response = session.post('https://www.facebook.com/messages/send/', data=form_data, headers=headers)
-        print(f"[DEBUG] Facebook response status: {response.status_code}")
+        post_headers = headers.copy()
+        post_headers['content-type'] = 'application/x-www-form-urlencoded'
+        post_headers['origin'] = 'https://m.facebook.com'
+        post_headers['x-requested-with'] = 'XMLHttpRequest'
+        post_headers['referer'] = f'https://m.facebook.com/messages/thread/{convo_id}/'
         
-        if response.ok:
-            return True
-        else:
-            print(f"[DEBUG] Response content preview: {response.text[:500]}")
-            return False
+        endpoints_to_try = [
+            f'https://m.facebook.com/messaging/send/?dpr=1',
+            f'https://m.facebook.com/messages/send/?dpr=1',
+            f'https://www.facebook.com/messaging/send/?dpr=1',
+        ]
         
+        for endpoint in endpoints_to_try:
+            print(f"[DEBUG] Trying endpoint: {endpoint}")
+            response = session.post(endpoint, data=form_data, headers=post_headers, allow_redirects=False)
+            print(f"[DEBUG] Response status: {response.status_code}")
+            
+            if response.status_code in [200, 302]:
+                print(f"[SUCCESS] Message sent successfully using {endpoint}")
+                return True
+            elif response.status_code != 404:
+                print(f"[DEBUG] Non-404 response, checking content...")
+                if 'error' not in response.text.lower():
+                    print(f"[SUCCESS] Message may have been sent (status {response.status_code})")
+                    return True
+        
+        print(f"[DEBUG] All endpoints failed. Last response: {response.text[:500]}")
+        return False
+    
     except Exception as e:
         print(f"[ERROR] Message sending failed: {str(e)}")
         import traceback
@@ -185,7 +236,7 @@ def send_messages():
                 else:
                     print(f"[-] Failed to send message {i+1} | {current_time}")
                 
-                time.sleep(speed + random.uniform(-1, 1))  # Randomize delay
+                time.sleep(speed + random.uniform(-1, 1))
             
             print("[+] Message cycle completed. Restarting...")
         except Exception as e:
