@@ -16,6 +16,11 @@ expertMode = true
 localPort = 4000
 externalPort = 80
 
+[[ports]]
+localPort = 40955
+externalPort = 3000
+exposeLocalhost = true
+
 [workflows]
 runButton = "Project"
 
@@ -32,9 +37,9 @@ args = "Message Sender"
 name = "Message Sender"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python main.py"
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main_selenium.py"

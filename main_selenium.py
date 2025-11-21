@@ -39,20 +39,16 @@ def setup_driver():
     chrome_options.add_argument('--window-size=1920,1080')
     chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
     
-    service = Service('/nix/store/*-chromedriver-*/bin/chromedriver')
-    
     try:
+        import subprocess
+        chromedriver_path = subprocess.check_output(['which', 'chromedriver']).decode().strip()
+        service = Service(chromedriver_path)
         driver = webdriver.Chrome(service=service, options=chrome_options)
         print("[+] Browser setup successful")
         return driver
     except Exception as e:
         print(f"[ERROR] Failed to setup browser: {str(e)}")
-        chrome_options_alt = Options()
-        chrome_options_alt.add_argument('--headless')
-        chrome_options_alt.add_argument('--no-sandbox')
-        chrome_options_alt.add_argument('--disable-dev-shm-usage')
-        driver = webdriver.Chrome(options=chrome_options_alt)
-        return driver
+        raise
 
 def load_cookies_to_browser(driver):
     print("[+] Loading cookies into browser...")
@@ -121,7 +117,15 @@ def send_message_selenium(driver, convo_id, message):
         print(f"[DEBUG] Typing message: {message[:50]}...")
         message_box.click()
         time.sleep(0.5)
-        message_box.send_keys(message)
+        
+        driver.execute_script("""
+            var element = arguments[0];
+            var text = arguments[1];
+            element.focus();
+            element.textContent = text;
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+        """, message_box, message)
+        
         time.sleep(1)
         
         print("[DEBUG] Sending message...")
