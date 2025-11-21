@@ -89,50 +89,96 @@ def send_message_selenium(driver, convo_id, message):
         url = f'https://m.facebook.com/messages/thread/{convo_id}'
         print(f"[DEBUG] Navigating to mobile messenger: {url}")
         driver.get(url)
+        time.sleep(5)
         
-        wait = WebDriverWait(driver, 20)
+        print(f"[DEBUG] Current URL: {driver.current_url}")
+        print(f"[DEBUG] Page title: {driver.title}")
+        
+        if "login" in driver.current_url.lower() or "login" in driver.title.lower():
+            print("[ERROR] Not logged in! Cookies might be expired.")
+            try:
+                driver.save_screenshot('debug_login_page.png')
+                print("[DEBUG] Screenshot saved: debug_login_page.png")
+            except:
+                pass
+            return False
+        
+        wait = WebDriverWait(driver, 10)
         
         print("[DEBUG] Waiting for message box...")
-        time.sleep(3)
-        
         message_box_selectors = [
             "textarea[name='body']",
             "textarea#composerInput",
             "div[contenteditable='true']",
-            "textarea"
+            "textarea",
+            "input[type='text']"
         ]
         
         message_box = None
         for selector in message_box_selectors:
             try:
-                message_box = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
-                if message_box.is_displayed():
-                    print(f"[DEBUG] Found message box with selector: {selector}")
+                elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                for elem in elements:
+                    if elem.is_displayed():
+                        message_box = elem
+                        print(f"[DEBUG] Found message box with selector: {selector}")
+                        break
+                if message_box:
                     break
-            except:
+            except Exception as e:
+                print(f"[DEBUG] Selector {selector} failed: {str(e)}")
                 continue
         
         if not message_box:
             print("[ERROR] Could not find message box")
-            print("[DEBUG] Trying to find any input field...")
-            inputs = driver.find_elements(By.TAG_NAME, "textarea")
-            if inputs:
-                message_box = inputs[0]
-                print(f"[DEBUG] Using first textarea found")
-            else:
-                return False
+            try:
+                driver.save_screenshot('debug_no_messagebox.png')
+                print("[DEBUG] Screenshot saved: debug_no_messagebox.png")
+                with open('debug_page_source.html', 'w', encoding='utf-8') as f:
+                    f.write(driver.page_source)
+                print("[DEBUG] Page source saved: debug_page_source.html")
+            except:
+                pass
+            return False
         
         print(f"[DEBUG] Typing message: {message[:50]}...")
         message_box.click()
         time.sleep(0.5)
-        message_box.clear()
-        message_box.send_keys(message)
+        
+        try:
+            message_box.clear()
+        except:
+            pass
+        
+        try:
+            driver.execute_script("""
+                var element = arguments[0];
+                var text = arguments[1];
+                element.focus();
+                
+                if (element.value !== undefined) {
+                    element.value = text;
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                    element.dispatchEvent(new Event('change', { bubbles: true }));
+                } else {
+                    element.textContent = text;
+                    element.innerText = text;
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            """, message_box, message)
+            print("[DEBUG] Message inserted via JavaScript")
+        except:
+            print("[DEBUG] JavaScript insert failed, using send_keys")
+            message_filtered = message.encode('ascii', 'ignore').decode('ascii')
+            message_box.send_keys(message_filtered)
+        
         time.sleep(1)
         
         print("[DEBUG] Looking for send button...")
         send_button_selectors = [
             "button[name='Send']",
             "input[name='Send']",
+            "button[value='Send']",
             "button[type='submit']",
             "input[type='submit']"
         ]
@@ -166,6 +212,11 @@ def send_message_selenium(driver, convo_id, message):
         print(f"[ERROR] Failed to send message: {str(e)}")
         import traceback
         traceback.print_exc()
+        try:
+            driver.save_screenshot('debug_error.png')
+            print("[DEBUG] Error screenshot saved: debug_error.png")
+        except:
+            pass
         return False
 
 def send_messages():
