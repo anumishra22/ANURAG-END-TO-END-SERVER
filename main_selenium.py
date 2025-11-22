@@ -291,67 +291,35 @@ def send_message_selenium(driver, convo_id, message):
         
         log_print(f"[DEBUG] Typing message: {message[:50]}...")
         
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", message_box)
-        time.sleep(0.2)  # Reduced
-        
-        driver.execute_script("""
-            var element = arguments[0];
-            var text = arguments[1];
-            
-            element.scrollIntoView({block: 'center'});
-            element.focus();
-            element.click();
-            
-            if (element.value !== undefined) {
-                element.value = text;
-                element.dispatchEvent(new Event('input', { bubbles: true }));
-                element.dispatchEvent(new Event('change', { bubbles: true }));
-            } else {
-                element.textContent = text;
-                element.innerText = text;
-                element.innerHTML = text;
-                
-                var inputEvent = new InputEvent('input', {
-                    bubbles: true,
-                    cancelable: true,
-                    inputType: 'insertText',
-                    data: text
-                });
-                element.dispatchEvent(inputEvent);
-                
-                var changeEvent = new Event('change', { bubbles: true });
-                element.dispatchEvent(changeEvent);
-            }
-        """, message_box, message)
-        log_print("[DEBUG] Message inserted via JavaScript")
-        time.sleep(1)
-        
-        log_print("[DEBUG] Looking for send button...")
-        driver.execute_script("""
-            var enterEvent = new KeyboardEvent('keydown', {
-                key: 'Enter',
-                code: 'Enter',
-                keyCode: 13,
-                which: 13,
-                bubbles: true,
-                cancelable: true
-            });
-            arguments[0].dispatchEvent(enterEvent);
-            
-            enterEvent = new KeyboardEvent('keyup', {
-                key: 'Enter',
-                code: 'Enter',
-                keyCode: 13,
-                which: 13,
-                bubbles: true,
-                cancelable: true
-            });
-            arguments[0].dispatchEvent(enterEvent);
-        """, message_box)
-        
-        log_print("[+] Message sent successfully")
-        time.sleep(1)
-        return True
+        try:
+            message_box.click()
+            time.sleep(0.1)
+            message_box.clear()
+            time.sleep(0.1)
+            message_box.send_keys(message)
+            time.sleep(0.2)
+            message_box.send_keys(Keys.ENTER)
+            log_print("[+] Message sent successfully")
+            time.sleep(0.5)
+            return True
+        except Exception as inner_e:
+            log_print(f"[DEBUG] Direct send failed, trying JavaScript: {str(inner_e)}")
+            try:
+                driver.execute_script("""
+                    var element = arguments[0];
+                    element.focus();
+                    element.click();
+                """, message_box)
+                time.sleep(0.1)
+                message_box.send_keys(message)
+                time.sleep(0.2)
+                message_box.send_keys(Keys.ENTER)
+                log_print("[+] Message sent successfully")
+                time.sleep(0.5)
+                return True
+            except Exception as fallback_e:
+                log_print(f"[ERROR] All send methods failed: {str(fallback_e)}")
+                return False
         
     except Exception as e:
         log_print(f"[ERROR] Failed to send message: {str(e)}")
