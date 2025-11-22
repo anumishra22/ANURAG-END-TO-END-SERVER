@@ -247,13 +247,13 @@ def send_message_selenium(driver, convo_id, message):
             log_print("[ERROR] Not logged in! Cookies might be expired.")
             return False
         
-        wait = WebDriverWait(driver, 10)
+        wait = WebDriverWait(driver, 20)
         
         log_print("[DEBUG] Waiting for message box...")
         message_box_selectors = [
+            "div[contenteditable='true']",
             "textarea[name='body']",
             "textarea#composerInput",
-            "div[contenteditable='true']",
             "textarea",
             "input[type='text']"
         ]
@@ -261,19 +261,28 @@ def send_message_selenium(driver, convo_id, message):
         message_box = None
         for selector in message_box_selectors:
             try:
+                log_print(f"[DEBUG] Trying selector: {selector}")
+                # Wait for element to be present
+                wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, selector)))
+                
                 elements = driver.find_elements(By.CSS_SELECTOR, selector)
                 for elem in elements:
-                    if elem.is_displayed():
-                        message_box = elem
-                        log_print(f"[DEBUG] Found message box with selector: {selector}")
-                        break
+                    try:
+                        if elem.is_displayed():
+                            message_box = elem
+                            log_print(f"[DEBUG] Found message box with selector: {selector}")
+                            break
+                    except:
+                        continue
+                
                 if message_box:
                     break
             except Exception as e:
+                log_print(f"[DEBUG] Selector {selector} not found: {str(e)}")
                 continue
         
         if not message_box:
-            log_print("[ERROR] Could not find message box")
+            log_print("[ERROR] Could not find message box after trying all selectors")
             return False
         
         log_print(f"[DEBUG] Typing message: {message[:50]}...")
