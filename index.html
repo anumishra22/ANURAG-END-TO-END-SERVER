@@ -15,35 +15,56 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             padding: 20px;
         }
         
         .container {
+            max-width: 1000px;
+            margin: 0 auto;
             background: white;
             border-radius: 15px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            padding: 40px;
-            max-width: 700px;
-            width: 100%;
+            overflow: hidden;
         }
         
         .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 40px;
             text-align: center;
-            margin-bottom: 30px;
         }
         
         .header h1 {
-            color: #333;
-            font-size: 28px;
+            font-size: 32px;
             margin-bottom: 5px;
         }
         
         .header p {
-            color: #666;
             font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            min-height: 600px;
+        }
+        
+        .left-panel {
+            padding: 40px;
+            border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+        
+        .right-panel {
+            padding: 40px;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            max-height: 600px;
+            overflow-y: auto;
         }
         
         .form-group {
@@ -59,6 +80,7 @@
         }
         
         .form-group input[type="text"],
+        .form-group input[type="number"],
         .form-group textarea {
             width: 100%;
             padding: 12px;
@@ -70,6 +92,7 @@
         }
         
         .form-group input[type="text"]:focus,
+        .form-group input[type="number"]:focus,
         .form-group textarea:focus {
             outline: none;
             border-color: #667eea;
@@ -78,7 +101,52 @@
         
         .form-group textarea {
             resize: vertical;
-            min-height: 120px;
+            min-height: 80px;
+        }
+        
+        .form-group input[type="number"] {
+            width: 100%;
+        }
+        
+        .file-upload {
+            position: relative;
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background-color: #f8f9ff;
+        }
+        
+        .file-upload:hover {
+            background-color: #f0f4ff;
+            border-color: #764ba2;
+        }
+        
+        .file-upload input[type="file"] {
+            display: none;
+        }
+        
+        .file-upload-text {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .file-upload-hint {
+            color: #999;
+            font-size: 12px;
+        }
+        
+        .file-name {
+            margin-top: 10px;
+            padding: 8px;
+            background-color: white;
+            border-radius: 4px;
+            color: #333;
+            font-size: 13px;
+            word-break: break-all;
         }
         
         .button-group {
@@ -98,33 +166,40 @@
             transition: all 0.3s;
         }
         
-        .btn-run {
+        .btn-start {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
         
-        .btn-run:hover {
+        .btn-start:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
         }
         
-        .btn-run:active {
-            transform: translateY(0);
+        .btn-stop {
+            background: linear-gradient(135deg, #f85032 0%, #e73827 100%);
+            color: white;
         }
         
-        .btn-run:disabled {
+        .btn-stop:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(248, 80, 50, 0.4);
+        }
+        
+        button:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
         }
         
         .status {
-            margin-top: 20px;
-            padding: 15px;
+            margin-top: 15px;
+            padding: 12px;
             border-radius: 8px;
             text-align: center;
             display: none;
             font-weight: 600;
+            font-size: 13px;
         }
         
         .status.success {
@@ -139,30 +214,80 @@
             display: block;
         }
         
-        .info-box {
-            background-color: #f0f4ff;
-            border-left: 4px solid #667eea;
-            padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            color: #555;
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            display: block;
         }
         
-        .loading {
-            display: none;
-            text-align: center;
-            color: #667eea;
+        .logs-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .logs-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .logs-box {
+            flex: 1;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+        }
+        
+        .log-line {
+            margin: 2px 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .log-success {
+            color: #28a745;
+        }
+        
+        .log-error {
+            color: #dc3545;
+        }
+        
+        .log-debug {
+            color: #666;
+        }
+        
+        .log-info {
+            color: #0066cc;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            
+            .left-panel {
+                border-right: none;
+                border-bottom: 1px solid #e0e0e0;
+            }
         }
         
         .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
+            width: 20px;
+            height: 20px;
             animation: spin 1s linear infinite;
-            margin: 10px auto;
+            display: inline-block;
+            margin-right: 8px;
         }
         
         @keyframes spin {
@@ -175,115 +300,220 @@
     <div class="container">
         <div class="header">
             <h1>🚀 ANURAG MISHRA END TO END</h1>
-            <p>Automated Message Sender</p>
+            <p>Automated Facebook Messenger Bot</p>
         </div>
         
-        <div class="info-box">
-            ℹ️ Enter your message text, thread ID, and cookies below. Click "RUN BOT" to start sending messages.
+        <div class="content">
+            <div class="left-panel">
+                <form id="configForm">
+                    <div class="form-group">
+                        <label>📁 Upload Message File</label>
+                        <div class="file-upload" id="fileUpload">
+                            <div class="file-upload-text">📤 Click or Drag & Drop</div>
+                            <div class="file-upload-hint">Upload a .txt file with messages</div>
+                            <input type="file" id="fileInput" accept=".txt" required>
+                            <div class="file-name" id="fileName" style="display:none;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="threadId">🔗 Thread ID</label>
+                        <input type="text" id="threadId" placeholder="e.g., 7869366159793219" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cookies">🍪 Cookies</label>
+                        <textarea id="cookies" placeholder="Paste your Facebook cookies here..." required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="interval">⏱️ Message Interval (seconds)</label>
+                        <input type="number" id="interval" min="0" step="0.1" value="0.1" required>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button type="button" class="btn-start" id="startBtn">▶️ START BOT</button>
+                        <button type="button" class="btn-stop" id="stopBtn" disabled>⏹️ STOP BOT</button>
+                    </div>
+                    
+                    <div class="status" id="status"></div>
+                </form>
+            </div>
+            
+            <div class="right-panel">
+                <div class="logs-title">📋 Live Logs</div>
+                <div class="logs-box" id="logsBox"></div>
+            </div>
         </div>
-        
-        <form id="botForm">
-            <div class="form-group">
-                <label for="messages">📝 Message Text (one per line)</label>
-                <textarea id="messages" required placeholder="Enter your messages here...&#10;One message per line"></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label for="threadId">🔗 Thread ID (Conversation ID)</label>
-                <input type="text" id="threadId" required placeholder="e.g., 7869366159793219">
-            </div>
-            
-            <div class="form-group">
-                <label for="cookies">🍪 Cookies</label>
-                <textarea id="cookies" required placeholder="Paste your Facebook cookies here..."></textarea>
-            </div>
-            
-            <div class="button-group">
-                <button type="submit" class="btn-run" id="runBtn">🎯 RUN BOT</button>
-            </div>
-            
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p>Updating files and starting bot...</p>
-            </div>
-            
-            <div class="status" id="status"></div>
-        </form>
     </div>
     
     <script>
-        document.getElementById('botForm').addEventListener('submit', async (e) => {
+        const fileUpload = document.getElementById('fileUpload');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const status = document.getElementById('status');
+        const logsBox = document.getElementById('logsBox');
+        
+        let selectedFile = null;
+        let logUpdateInterval = null;
+        let isBotRunning = false;
+        
+        // File upload handling
+        fileUpload.addEventListener('click', () => fileInput.click());
+        
+        fileUpload.addEventListener('dragover', (e) => {
             e.preventDefault();
+            fileUpload.style.backgroundColor = '#f0f4ff';
+            fileUpload.style.borderColor = '#764ba2';
+        });
+        
+        fileUpload.addEventListener('dragleave', () => {
+            fileUpload.style.backgroundColor = '#f8f9ff';
+            fileUpload.style.borderColor = '#667eea';
+        });
+        
+        fileUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUpload.style.backgroundColor = '#f8f9ff';
+            fileUpload.style.borderColor = '#667eea';
             
-            const runBtn = document.getElementById('runBtn');
-            const loading = document.getElementById('loading');
-            const status = document.getElementById('status');
-            
-            const messages = document.getElementById('messages').value;
-            const threadId = document.getElementById('threadId').value;
-            const cookies = document.getElementById('cookies').value;
-            
-            if (!messages.trim() || !threadId.trim() || !cookies.trim()) {
-                status.textContent = '❌ Please fill in all fields!';
-                status.className = 'status error';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect();
+            }
+        });
+        
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        function handleFileSelect() {
+            selectedFile = fileInput.files[0];
+            if (selectedFile) {
+                fileName.textContent = '✓ ' + selectedFile.name;
+                fileName.style.display = 'block';
+            }
+        }
+        
+        // Start Bot
+        startBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                showStatus('❌ Please upload a file first!', 'error');
                 return;
             }
             
-            runBtn.disabled = true;
-            loading.style.display = 'block';
-            status.style.display = 'none';
+            const threadId = document.getElementById('threadId').value.trim();
+            const cookies = document.getElementById('cookies').value.trim();
+            const interval = document.getElementById('interval').value;
+            
+            if (!threadId || !cookies) {
+                showStatus('❌ Please fill in Thread ID and Cookies!', 'error');
+                return;
+            }
+            
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
             
             try {
-                const response = await fetch('/update-config', {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('threadId', threadId);
+                formData.append('cookies', cookies);
+                formData.append('interval', interval);
+                
+                const response = await fetch('/start-bot', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        messages: messages,
-                        threadId: threadId,
-                        cookies: cookies
-                    })
+                    body: formData
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    status.textContent = '✅ ' + data.message;
-                    status.className = 'status success';
-                    loading.style.display = 'none';
-                    
-                    setTimeout(() => {
-                        status.style.display = 'none';
-                        runBtn.disabled = false;
-                    }, 3000);
+                    showStatus('✅ Bot started successfully!', 'success');
+                    isBotRunning = true;
+                    startUpdatingLogs();
                 } else {
-                    status.textContent = '❌ ' + (data.message || 'Error updating configuration');
-                    status.className = 'status error';
-                    loading.style.display = 'none';
-                    runBtn.disabled = false;
+                    showStatus('❌ ' + (data.message || 'Error starting bot'), 'error');
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
                 }
             } catch (error) {
-                status.textContent = '❌ Error: ' + error.message;
-                status.className = 'status error';
-                loading.style.display = 'none';
-                runBtn.disabled = false;
+                showStatus('❌ Error: ' + error.message, 'error');
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
             }
         });
         
-        // Load current values on page load
-        window.addEventListener('load', async () => {
+        // Stop Bot
+        stopBtn.addEventListener('click', async () => {
             try {
-                const response = await fetch('/get-config');
+                const response = await fetch('/stop-bot', { method: 'POST' });
                 const data = await response.json();
                 
-                if (data.messages) document.getElementById('messages').value = data.messages;
-                if (data.threadId) document.getElementById('threadId').value = data.threadId;
-                if (data.cookies) document.getElementById('cookies').value = data.cookies;
+                if (data.success) {
+                    showStatus('✅ Bot stopped!', 'success');
+                    isBotRunning = false;
+                    stopUpdatingLogs();
+                } else {
+                    showStatus('❌ Error stopping bot', 'error');
+                }
+                
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
             } catch (error) {
-                console.log('Could not load current config');
+                showStatus('❌ Error: ' + error.message, 'error');
             }
         });
+        
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = 'status ' + type;
+            
+            if (type !== 'error') {
+                setTimeout(() => {
+                    status.className = 'status';
+                }, 3000);
+            }
+        }
+        
+        function startUpdatingLogs() {
+            logUpdateInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/get-logs');
+                    const data = await response.json();
+                    
+                    if (data.logs) {
+                        logsBox.innerHTML = '';
+                        data.logs.forEach(log => {
+                            const logLine = document.createElement('div');
+                            logLine.className = 'log-line ' + getLogClass(log);
+                            logLine.textContent = log;
+                            logsBox.appendChild(logLine);
+                        });
+                        logsBox.scrollTop = logsBox.scrollHeight;
+                    }
+                } catch (error) {
+                    console.log('Error updating logs:', error);
+                }
+            }, 500);
+        }
+        
+        function stopUpdatingLogs() {
+            if (logUpdateInterval) {
+                clearInterval(logUpdateInterval);
+                logUpdateInterval = null;
+            }
+        }
+        
+        function getLogClass(log) {
+            if (log.includes('[+]')) return 'log-success';
+            if (log.includes('[ERROR]') || log.includes('[-]')) return 'log-error';
+            if (log.includes('[DEBUG]')) return 'log-debug';
+            return 'log-info';
+        }
+        
+        showStatus('ℹ️ Ready to start! Upload file, fill details, then click START BOT', 'info');
     </script>
 </body>
 </html>

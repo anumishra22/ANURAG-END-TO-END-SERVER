@@ -5,6 +5,9 @@ import threading
 import http.server
 import socketserver
 import json
+import io
+import sys
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -13,32 +16,39 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 
+# Global state
+bot_state = {
+    'running': False,
+    'logs': [],
+    'driver': None,
+    'stop_flag': False
+}
+
+class LogCapture(io.StringIO):
+    def write(self, s):
+        bot_state['logs'].append(s.strip())
+        if len(bot_state['logs']) > 500:
+            bot_state['logs'].pop(0)
+        return super().write(s)
+
 class MyHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        if self.path == '/get-config':
-            try:
-                messages = open('File.txt', 'r').read()
-                threadId = open('convo.txt', 'r').read().strip()
-                cookies = open('cookies.txt', 'r').read()
-                
-                response = json.dumps({
-                    'messages': messages,
-                    'threadId': threadId,
-                    'cookies': cookies
-                }).encode()
-                
-                self.send_response(200)
-                self.send_header("Content-type", "application/json")
-                self.end_headers()
-                self.wfile.write(response)
-            except Exception as e:
-                self.send_error(500, str(e))
+        if self.path == '/get-logs':
+            response = json.dumps({
+                'logs': bot_state['logs'][-100:]
+            }).encode()
+            
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(response)
         elif self.path == '/':
             try:
                 with open('index.html', 'r') as f:
                     content = f.read().encode()
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
+                self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
                 self.wfile.write(content)
             except:
@@ -47,61 +57,122 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b"Server is Running")
         else:
-            self.send_response(200)
-            self.send_header("Content-type", "text/html")
+            self.send_response(404)
             self.end_headers()
-            self.wfile.write(b"Server is Running")
     
     def do_POST(self):
-        if self.path == '/update-config':
-            content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length)
+        if self.path == '/start-bot':
+            content_type = self.headers['Content-Type']
             
-            try:
-                data = json.loads(body.decode())
-                
-                with open('File.txt', 'w') as f:
-                    f.write(data.get('messages', ''))
-                
-                with open('convo.txt', 'w') as f:
-                    f.write(data.get('threadId', ''))
-                
-                with open('cookies.txt', 'w') as f:
-                    f.write(data.get('cookies', ''))
-                
-                response = json.dumps({
-                    'success': True,
-                    'message': 'Configuration updated! Bot will run with new settings.'
-                }).encode()
-                
-                self.send_response(200)
-                self.send_header("Content-type", "application/json")
-                self.end_headers()
-                self.wfile.write(response)
-            except Exception as e:
-                response = json.dumps({
-                    'success': False,
-                    'message': str(e)
-                }).encode()
-                
-                self.send_response(500)
-                self.send_header("Content-type", "application/json")
-                self.end_headers()
-                self.wfile.write(response)
+            if 'multipart/form-data' in content_type:
+                try:
+                    content_length = int(self.headers['Content-Length'])
+                    body = self.rfile.read(content_length)
+                    
+                    boundary = content_type.split("boundary=")[1].encode()
+                    parts = body.split(b'--' + boundary)
+                    
+                    data = {}
+                    file_content = None
+                    
+                    for part in parts:
+                        if b'Content-Disposition' in part:
+                            if b'filename=' in part:
+                                file_start = part.find(b'\r\n\r\n') + 4
+                                file_end = part.rfind(b'\r\n')
+                                file_content = part[file_start:file_end].decode('utf-8', errors='ignore')
+                            else:
+                                lines = part.split(b'\r\n')
+                                for i, line in enumerate(lines):
+                                    if b'name=' in line:
+                                        name = line.decode().split('name="')[1].split('"')[0]
+                                        value = lines[i+2].decode('utf-8', errors='ignore')
+                                        data[name] = value
+                                        break
+                    
+                    if file_content and data.get('threadId') and data.get('cookies'):
+                        with open('File.txt', 'w') as f:
+                            f.write(file_content)
+                        
+                        with open('convo.txt', 'w') as f:
+                            f.write(data['threadId'])
+                        
+                        with open('cookies.txt', 'w') as f:
+                            f.write(data['cookies'])
+                        
+                        with open('time.txt', 'w') as f:
+                            f.write(data.get('interval', '0.1'))
+                        
+                        bot_state['stop_flag'] = False
+                        bot_thread = threading.Thread(target=send_messages_main, daemon=True)
+                        bot_thread.start()
+                        
+                        response = json.dumps({
+                            'success': True,
+                            'message': 'Bot started successfully!'
+                        }).encode()
+                    else:
+                        response = json.dumps({
+                            'success': False,
+                            'message': 'Missing file or required fields'
+                        }).encode()
+                    
+                    self.send_response(200)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(response)
+                except Exception as e:
+                    response = json.dumps({
+                        'success': False,
+                        'message': str(e)
+                    }).encode()
+                    
+                    self.send_response(500)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(response)
+        
+        elif self.path == '/stop-bot':
+            bot_state['stop_flag'] = True
+            if bot_state['driver']:
+                try:
+                    bot_state['driver'].quit()
+                except:
+                    pass
+                bot_state['driver'] = None
+            
+            response = json.dumps({
+                'success': True,
+                'message': 'Bot stopped'
+            }).encode()
+            
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(response)
+        
         else:
             self.send_error(404)
     
     def log_message(self, format, *args):
         pass
 
+def log_print(message):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_msg = f"[{timestamp}] {message}"
+    print(log_msg)
+    bot_state['logs'].append(log_msg)
+    if len(bot_state['logs']) > 500:
+        bot_state['logs'].pop(0)
+
 def execute_server():
     PORT = int(os.getenv('PORT', 4000))
-    with socketserver.TCPServer(("", PORT), MyHandler) as httpd:
-        print(f"Server running at http://localhost:{PORT}")
+    with socketserver.TCPServer(("0.0.0.0", PORT), MyHandler) as httpd:
+        log_print(f"[+] Server running at http://localhost:{PORT}")
         httpd.serve_forever()
 
 def setup_driver():
-    print("[+] Setting up Chrome browser...")
+    log_print("[+] Setting up Chrome browser...")
     chrome_options = Options()
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
@@ -116,14 +187,14 @@ def setup_driver():
         chromedriver_path = subprocess.check_output(['which', 'chromedriver']).decode().strip()
         service = Service(chromedriver_path)
         driver = webdriver.Chrome(service=service, options=chrome_options)
-        print("[+] Browser setup successful")
+        log_print("[+] Browser setup successful")
         return driver
     except Exception as e:
-        print(f"[ERROR] Failed to setup browser: {str(e)}")
+        log_print(f"[ERROR] Failed to setup browser: {str(e)}")
         raise
 
 def load_cookies_to_browser(driver):
-    print("[+] Loading cookies into browser...")
+    log_print("[+] Loading cookies into browser...")
     try:
         with open('cookies.txt', 'r') as file:
             cookies_content = file.read().strip().strip('[]')
@@ -147,37 +218,35 @@ def load_cookies_to_browser(driver):
                     }
                     driver.add_cookie(cookie_dict)
                 except Exception as e:
-                    print(f"[DEBUG] Could not add cookie {key}: {str(e)}")
+                    log_print(f"[DEBUG] Could not add cookie {key}: {str(e)}")
         
-        print("[+] Cookies loaded successfully")
+        log_print("[+] Cookies loaded successfully")
         return True
         
     except Exception as e:
-        print(f"[ERROR] Failed to load cookies: {str(e)}")
+        log_print(f"[ERROR] Failed to load cookies: {str(e)}")
         return False
 
 def send_message_selenium(driver, convo_id, message):
+    if bot_state['stop_flag']:
+        return False
+        
     try:
         url = f'https://www.facebook.com/messages/t/{convo_id}'
-        print(f"[DEBUG] Navigating to messenger: {url}")
+        log_print(f"[DEBUG] Navigating to messenger: {url}")
         driver.get(url)
         time.sleep(5)
         
-        print(f"[DEBUG] Current URL: {driver.current_url}")
-        print(f"[DEBUG] Page title: {driver.title}")
+        log_print(f"[DEBUG] Current URL: {driver.current_url}")
+        log_print(f"[DEBUG] Page title: {driver.title}")
         
         if "login" in driver.current_url.lower() or "login" in driver.title.lower():
-            print("[ERROR] Not logged in! Cookies might be expired.")
-            try:
-                driver.save_screenshot('debug_login_page.png')
-                print("[DEBUG] Screenshot saved: debug_login_page.png")
-            except:
-                pass
+            log_print("[ERROR] Not logged in! Cookies might be expired.")
             return False
         
         wait = WebDriverWait(driver, 10)
         
-        print("[DEBUG] Waiting for message box...")
+        log_print("[DEBUG] Waiting for message box...")
         message_box_selectors = [
             "textarea[name='body']",
             "textarea#composerInput",
@@ -193,27 +262,18 @@ def send_message_selenium(driver, convo_id, message):
                 for elem in elements:
                     if elem.is_displayed():
                         message_box = elem
-                        print(f"[DEBUG] Found message box with selector: {selector}")
+                        log_print(f"[DEBUG] Found message box with selector: {selector}")
                         break
                 if message_box:
                     break
             except Exception as e:
-                print(f"[DEBUG] Selector {selector} failed: {str(e)}")
                 continue
         
         if not message_box:
-            print("[ERROR] Could not find message box")
-            try:
-                driver.save_screenshot('debug_no_messagebox.png')
-                print("[DEBUG] Screenshot saved: debug_no_messagebox.png")
-                with open('debug_page_source.html', 'w', encoding='utf-8') as f:
-                    f.write(driver.page_source)
-                print("[DEBUG] Page source saved: debug_page_source.html")
-            except:
-                pass
+            log_print("[ERROR] Could not find message box")
             return False
         
-        print(f"[DEBUG] Typing message: {message[:50]}...")
+        log_print(f"[DEBUG] Typing message: {message[:50]}...")
         
         driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", message_box)
         time.sleep(0.5)
@@ -247,123 +307,109 @@ def send_message_selenium(driver, convo_id, message):
                 element.dispatchEvent(changeEvent);
             }
         """, message_box, message)
-        print("[DEBUG] Message inserted via JavaScript")
+        log_print("[DEBUG] Message inserted via JavaScript")
         time.sleep(1)
         
-        print("[DEBUG] Looking for send button...")
-        send_button_selectors = [
-            "button[name='Send']",
-            "input[name='Send']",
-            "button[value='Send']",
-            "button[type='submit']",
-            "input[type='submit']"
-        ]
+        log_print("[DEBUG] Looking for send button...")
+        driver.execute_script("""
+            var enterEvent = new KeyboardEvent('keydown', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+                cancelable: true
+            });
+            arguments[0].dispatchEvent(enterEvent);
+            
+            enterEvent = new KeyboardEvent('keyup', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+                cancelable: true
+            });
+            arguments[0].dispatchEvent(enterEvent);
+        """, message_box)
         
-        send_button = None
-        for selector in send_button_selectors:
-            try:
-                buttons = driver.find_elements(By.CSS_SELECTOR, selector)
-                for btn in buttons:
-                    if btn.is_displayed():
-                        send_button = btn
-                        print(f"[DEBUG] Found send button with selector: {selector}")
-                        break
-                if send_button:
-                    break
-            except:
-                continue
-        
-        if send_button:
-            print("[DEBUG] Clicking send button...")
-            send_button.click()
-        else:
-            print("[DEBUG] Sending with Enter key...")
-            message_box.send_keys(Keys.RETURN)
-        
-        time.sleep(2)
-        print("[+] Message sent successfully")
+        log_print("[+] Message sent successfully")
+        time.sleep(1)
         return True
         
     except Exception as e:
-        print(f"[ERROR] Failed to send message: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        try:
-            driver.save_screenshot('debug_error.png')
-            print("[DEBUG] Error screenshot saved: debug_error.png")
-        except:
-            pass
+        log_print(f"[ERROR] Failed to send message: {str(e)}")
         return False
 
-def send_messages():
-    print("[+] Starting Selenium-based message sender...")
+def send_messages_main():
+    log_print("[+] Starting Selenium-based message sender...")
     
     try:
         with open('convo.txt', 'r') as file:
             convo_id = file.read().strip()
-            print(f"[DEBUG] Conversation ID: {convo_id}")
+            log_print(f"[DEBUG] Conversation ID: {convo_id}")
     except Exception as e:
-        print(f"[ERROR] Reading convo.txt: {str(e)}")
+        log_print(f"[ERROR] Reading convo.txt: {str(e)}")
         return
     
     try:
-        with open('file.txt', 'r') as file:
-            text_file_path = file.read().strip()
-        with open(text_file_path, 'r') as file:
+        with open('File.txt', 'r') as file:
             messages = [line.strip() for line in file.readlines() if line.strip()]
-            print(f"[DEBUG] Loaded {len(messages)} messages")
+            log_print(f"[DEBUG] Loaded {len(messages)} messages")
     except Exception as e:
-        print(f"[ERROR] Reading messages: {str(e)}")
+        log_print(f"[ERROR] Reading messages: {str(e)}")
         return
-    
-    try:
-        with open('hatersname.txt', 'r') as file:
-            haters_name = file.read().strip()
-    except:
-        haters_name = ""
     
     try:
         with open('time.txt', 'r') as file:
-            speed = int(file.read().strip())
+            speed = float(file.read().strip())
     except:
-        speed = 5
+        speed = 0.1
     
     driver = setup_driver()
+    bot_state['driver'] = driver
     
     if not load_cookies_to_browser(driver):
-        print("[ERROR] Failed to load cookies - stopping")
+        log_print("[ERROR] Failed to load cookies - stopping")
         driver.quit()
+        bot_state['driver'] = None
         return
     
-    print("[+] Starting message loop...")
+    log_print("[+] Starting message loop...")
     try:
-        while True:
+        while not bot_state['stop_flag']:
             try:
                 for i, message in enumerate(messages):
-                    full_message = f"{haters_name} {message}" if haters_name else message
-                    current_time = time.strftime("%Y-%m-%d %I:%M:%S %p")
-                    
-                    if send_message_selenium(driver, convo_id, full_message):
-                        print(f"[+] Message {i+1}/{len(messages)} sent | {current_time}")
+                    if bot_state['stop_flag']:
+                        break
+                        
+                    if send_message_selenium(driver, convo_id, message):
+                        log_print(f"[+] Message {i+1}/{len(messages)} sent successfully")
                     else:
-                        print(f"[-] Failed to send message {i+1} | {current_time}")
+                        log_print(f"[-] Failed to send message {i+1}")
                     
-                    time.sleep(max(0, speed + random.uniform(-1, 1)))
+                    time.sleep(max(0, speed + random.uniform(-0.5, 0.5)))
                 
-                print("[+] Message cycle completed. Restarting...")
+                if not bot_state['stop_flag']:
+                    log_print("[+] Message cycle completed. Restarting...")
             except Exception as e:
-                print(f"[!] Error in message loop: {str(e)}")
-                time.sleep(30)
+                log_print(f"[!] Error in message loop: {str(e)}")
+                if not bot_state['stop_flag']:
+                    time.sleep(5)
     
     except KeyboardInterrupt:
-        print("\n[+] Stopping message sender...")
+        log_print("\n[+] Stopping message sender...")
     finally:
-        driver.quit()
-        print("[+] Browser closed")
+        try:
+            driver.quit()
+        except:
+            pass
+        bot_state['driver'] = None
+        log_print("[+] Browser closed")
 
 if __name__ == "__main__":
     server_thread = threading.Thread(target=execute_server, daemon=True)
     server_thread.start()
     
     time.sleep(2)
-    send_messages()
+    log_print("[+] Selenium Bot Ready!")
