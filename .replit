@@ -17,8 +17,13 @@ localPort = 4000
 externalPort = 80
 
 [[ports]]
-localPort = 34769
+localPort = 36395
 externalPort = 3000
+exposeLocalhost = true
+
+[[ports]]
+localPort = 54941
+externalPort = 3001
 exposeLocalhost = true
 
 [workflows]
