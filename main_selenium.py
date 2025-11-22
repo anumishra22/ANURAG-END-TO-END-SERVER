@@ -182,6 +182,10 @@ def setup_driver():
     chrome_options.add_argument('--disable-software-rasterizer')
     chrome_options.add_argument('--window-size=1920,1080')
     chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+    chrome_options.add_argument('--disable-extensions')
+    chrome_options.add_argument('--disable-plugins')
+    chrome_options.add_argument('--disable-images')
+    chrome_options.add_argument('--blink-settings=imagesEnabled=false')
     
     try:
         from webdriver_manager.chrome import ChromeDriverManager
@@ -238,7 +242,7 @@ def send_message_selenium(driver, convo_id, message):
         url = f'https://www.facebook.com/messages/t/{convo_id}'
         log_print(f"[DEBUG] Navigating to messenger: {url}")
         driver.get(url)
-        time.sleep(5)
+        time.sleep(2)  # Reduced from 5 seconds
         
         log_print(f"[DEBUG] Current URL: {driver.current_url}")
         log_print(f"[DEBUG] Page title: {driver.title}")
@@ -247,7 +251,7 @@ def send_message_selenium(driver, convo_id, message):
             log_print("[ERROR] Not logged in! Cookies might be expired.")
             return False
         
-        wait = WebDriverWait(driver, 20)
+        wait = WebDriverWait(driver, 10)  # Reduced for faster timeout
         
         log_print("[DEBUG] Waiting for message box...")
         message_box_selectors = [
@@ -288,7 +292,7 @@ def send_message_selenium(driver, convo_id, message):
         log_print(f"[DEBUG] Typing message: {message[:50]}...")
         
         driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", message_box)
-        time.sleep(0.5)
+        time.sleep(0.2)  # Reduced
         
         driver.execute_script("""
             var element = arguments[0];
