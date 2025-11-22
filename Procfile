@@ -1,1 +1,1 @@
-web: python render_bot.py
+web: python main_selenium.py
