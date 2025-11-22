@@ -408,8 +408,14 @@ def send_messages_main():
         log_print("[+] Browser closed")
 
 if __name__ == "__main__":
-    server_thread = threading.Thread(target=execute_server, daemon=True)
+    server_thread = threading.Thread(target=execute_server, daemon=False)
     server_thread.start()
     
     time.sleep(2)
     log_print("[+] Selenium Bot Ready!")
+    
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
