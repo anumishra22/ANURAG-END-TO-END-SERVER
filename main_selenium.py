@@ -183,9 +183,16 @@ def setup_driver():
     chrome_options.add_argument('--window-size=1920,1080')
     chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
     
+    # For Render: use chromium-browser binary
+    chrome_options.add_argument('--chrome-binary=/usr/bin/chromium-browser')
+    
     try:
         import subprocess
-        chromedriver_path = subprocess.check_output(['which', 'chromedriver']).decode().strip()
+        try:
+            chromedriver_path = subprocess.check_output(['which', 'chromedriver']).decode().strip()
+        except:
+            chromedriver_path = '/usr/bin/chromedriver'
+        
         service = Service(chromedriver_path)
         driver = webdriver.Chrome(service=service, options=chrome_options)
         log_print("[+] Browser setup successful")
