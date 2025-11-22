@@ -166,7 +166,8 @@ def log_print(message):
         bot_state['logs'].pop(0)
 
 def execute_server():
-    PORT = int(os.getenv('PORT', 4000))
+    PORT = int(os.getenv('PORT', 5000))
+    socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("0.0.0.0", PORT), MyHandler) as httpd:
         log_print(f"[+] Server running at http://localhost:{PORT}")
         httpd.serve_forever()
