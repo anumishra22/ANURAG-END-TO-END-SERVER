@@ -184,31 +184,11 @@ def setup_driver():
     chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
     
     try:
-        import subprocess
-        import os
+        from webdriver_manager.chrome import ChromeDriverManager
         
-        # Try to find chromedriver
-        chromedriver_path = None
-        
-        # Try common locations
-        for path in ['/usr/bin/chromedriver', '/usr/local/bin/chromedriver', 'chromedriver']:
-            if os.path.exists(path):
-                chromedriver_path = path
-                break
-        
-        # If not found, try which command
-        if not chromedriver_path:
-            try:
-                chromedriver_path = subprocess.check_output(['which', 'chromedriver']).decode().strip()
-            except:
-                pass
-        
-        if chromedriver_path:
-            service = Service(chromedriver_path)
-            driver = webdriver.Chrome(service=service, options=chrome_options)
-        else:
-            # Fallback: let webdriver find it automatically
-            driver = webdriver.Chrome(options=chrome_options)
+        log_print("[DEBUG] Using webdriver-manager to download ChromeDriver...")
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=chrome_options)
         
         log_print("[+] Browser setup successful")
         return driver
