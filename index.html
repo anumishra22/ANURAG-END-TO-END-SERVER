@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANURAG MISHRA END TO END</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 700px;
+            width: 100%;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .form-group input[type="text"],
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input[type="text"]:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background-color: #f8f9ff;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-run {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-run:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-run:active {
+            transform: translateY(0);
+        }
+        
+        .btn-run:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+            font-weight: 600;
+        }
+        
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        
+        .info-box {
+            background-color: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #555;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 ANURAG MISHRA END TO END</h1>
+            <p>Automated Message Sender</p>
+        </div>
+        
+        <div class="info-box">
+            ℹ️ Enter your message text, thread ID, and cookies below. Click "RUN BOT" to start sending messages.
+        </div>
+        
+        <form id="botForm">
+            <div class="form-group">
+                <label for="messages">📝 Message Text (one per line)</label>
+                <textarea id="messages" required placeholder="Enter your messages here...&#10;One message per line"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="threadId">🔗 Thread ID (Conversation ID)</label>
+                <input type="text" id="threadId" required placeholder="e.g., 7869366159793219">
+            </div>
+            
+            <div class="form-group">
+                <label for="cookies">🍪 Cookies</label>
+                <textarea id="cookies" required placeholder="Paste your Facebook cookies here..."></textarea>
+            </div>
+            
+            <div class="button-group">
+                <button type="submit" class="btn-run" id="runBtn">🎯 RUN BOT</button>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Updating files and starting bot...</p>
+            </div>
+            
+            <div class="status" id="status"></div>
+        </form>
+    </div>
+    
+    <script>
+        document.getElementById('botForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const runBtn = document.getElementById('runBtn');
+            const loading = document.getElementById('loading');
+            const status = document.getElementById('status');
+            
+            const messages = document.getElementById('messages').value;
+            const threadId = document.getElementById('threadId').value;
+            const cookies = document.getElementById('cookies').value;
+            
+            if (!messages.trim() || !threadId.trim() || !cookies.trim()) {
+                status.textContent = '❌ Please fill in all fields!';
+                status.className = 'status error';
+                return;
+            }
+            
+            runBtn.disabled = true;
+            loading.style.display = 'block';
+            status.style.display = 'none';
+            
+            try {
+                const response = await fetch('/update-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        messages: messages,
+                        threadId: threadId,
+                        cookies: cookies
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    status.textContent = '✅ ' + data.message;
+                    status.className = 'status success';
+                    loading.style.display = 'none';
+                    
+                    setTimeout(() => {
+                        status.style.display = 'none';
+                        runBtn.disabled = false;
+                    }, 3000);
+                } else {
+                    status.textContent = '❌ ' + (data.message || 'Error updating configuration');
+                    status.className = 'status error';
+                    loading.style.display = 'none';
+                    runBtn.disabled = false;
+                }
+            } catch (error) {
+                status.textContent = '❌ Error: ' + error.message;
+                status.className = 'status error';
+                loading.style.display = 'none';
+                runBtn.disabled = false;
+            }
+        });
+        
+        // Load current values on page load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch('/get-config');
+                const data = await response.json();
+                
+                if (data.messages) document.getElementById('messages').value = data.messages;
+                if (data.threadId) document.getElementById('threadId').value = data.threadId;
+                if (data.cookies) document.getElementById('cookies').value = data.cookies;
+            } catch (error) {
+                console.log('Could not load current config');
+            }
+        });
+    </script>
+</body>
+</html>

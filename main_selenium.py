@@ -4,6 +4,7 @@ import os
 import threading
 import http.server
 import socketserver
+import json
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -14,10 +15,81 @@ from selenium.webdriver.chrome.service import Service
 
 class MyHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        self.wfile.write(b"Server is Running")
+        if self.path == '/get-config':
+            try:
+                messages = open('File.txt', 'r').read()
+                threadId = open('convo.txt', 'r').read().strip()
+                cookies = open('cookies.txt', 'r').read()
+                
+                response = json.dumps({
+                    'messages': messages,
+                    'threadId': threadId,
+                    'cookies': cookies
+                }).encode()
+                
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(response)
+            except Exception as e:
+                self.send_error(500, str(e))
+        elif self.path == '/':
+            try:
+                with open('index.html', 'r') as f:
+                    content = f.read().encode()
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(content)
+            except:
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(b"Server is Running")
+        else:
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"Server is Running")
+    
+    def do_POST(self):
+        if self.path == '/update-config':
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            
+            try:
+                data = json.loads(body.decode())
+                
+                with open('File.txt', 'w') as f:
+                    f.write(data.get('messages', ''))
+                
+                with open('convo.txt', 'w') as f:
+                    f.write(data.get('threadId', ''))
+                
+                with open('cookies.txt', 'w') as f:
+                    f.write(data.get('cookies', ''))
+                
+                response = json.dumps({
+                    'success': True,
+                    'message': 'Configuration updated! Bot will run with new settings.'
+                }).encode()
+                
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(response)
+            except Exception as e:
+                response = json.dumps({
+                    'success': False,
+                    'message': str(e)
+                }).encode()
+                
+                self.send_response(500)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(response)
+        else:
+            self.send_error(404)
     
     def log_message(self, format, *args):
         pass
