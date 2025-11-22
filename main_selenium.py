@@ -276,7 +276,7 @@ def send_messages():
                     else:
                         print(f"[-] Failed to send message {i+1} | {current_time}")
                     
-                    time.sleep(speed + random.uniform(-1, 1))
+                    time.sleep(max(0, speed + random.uniform(-1, 1)))
                 
                 print("[+] Message cycle completed. Restarting...")
             except Exception as e:
