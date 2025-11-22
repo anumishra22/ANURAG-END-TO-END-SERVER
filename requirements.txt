@@ -1,5 +1,2 @@
 requests==2.31.0
-fbchat
 selenium==4.15.2
-gunicorn==21.2.0
-python-chromedriver==21.0.0

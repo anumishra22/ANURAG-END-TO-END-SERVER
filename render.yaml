@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: anurag-messenger-bot
-    env: python
-    buildCommand: bash build.sh
-    startCommand: python main_selenium.py
-    envVars:
-      - key: PORT
-        value: 10000
