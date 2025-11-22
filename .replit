@@ -18,7 +18,7 @@ externalPort = 80
 
 [[ports]]
 localPort = 5000
-externalPort = 5000
+externalPort = 80
 
 [workflows]
 runButton = "Project"
@@ -30,15 +30,16 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Message Sender"
+args = "ANURAG BOT"
 
 [[workflows.workflow]]
-name = "Message Sender"
+name = "ANURAG BOT"
 author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python main_selenium.py"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
